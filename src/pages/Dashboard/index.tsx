@@ -1,68 +1,103 @@
-import React from 'react';
+import React, { useState, useEffect, FormEvent } from 'react';
 import { FiChevronRight } from 'react-icons/fi';
+import { Link } from 'react-router-dom';
+import api from '../../services/api';
 
 import logoImg from '../../assets/logo.svg';
-import { Title, Form, Repositories } from './styles';
-import Repository from '../Repository';
+import { Title, Form, Error, Repositories } from './styles';
 
-const Dashboard: React.FC = () => (
-  <>
-    <img src={logoImg} alt="GitHub Explorer" />
-    <Title>Explore Repositories on GitHub</Title>
+interface Repository {
+  full_name: string;
+  description: string;
+  owner: {
+    login: string;
+    avatar_url: string;
+  };
+}
 
-    <Form>
-      <input placeholder="Type the repository name..." />
-      <button type="submit">Search</button>
-    </Form>
+const Dashboard: React.FC = () => {
+  const [newRepo, setNewRepo] = useState('');
+  const [inputError, setInputError] = useState('');
+  const [repositories, setRepositories] = useState<Repository[]>(() => {
+    const storageRepositories = localStorage.getItem(
+      '@GithubExplorer:repositories',
+    );
 
-    <Repositories>
-      <a href="test">
-        <img
-          src="https://avatars0.githubusercontent.com/u/11356237?s=460&u=f8eddeb9fda5f436a5c49948a6e582f6ce6fccb1&v=4"
-          alt="Rodrigo Moutinho"
+    if (storageRepositories) {
+      return JSON.parse(storageRepositories);
+    }
+
+    return [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem(
+      '@GithubExplorer:repositories',
+      JSON.stringify(repositories),
+    );
+  }, [repositories]);
+
+  async function handleAddRepository(
+    event: FormEvent<HTMLFormElement>,
+  ): Promise<void> {
+    event.preventDefault();
+
+    if (!newRepo) {
+      setInputError('Type the user/repository you want to search');
+      return;
+    }
+
+    try {
+      const response = await api.get<Repository>(`repos/${newRepo}`);
+
+      const repository = response.data;
+
+      setRepositories([...repositories, repository]);
+      setNewRepo('');
+      setInputError('');
+    } catch (err) {
+      setInputError('Repository not found');
+    }
+  }
+
+  return (
+    <>
+      <img src={logoImg} alt="GitHub Explorer" />
+      <Title>Explore Repositories on GitHub</Title>
+
+      <Form hasError={!!inputError} onSubmit={handleAddRepository}>
+        <input
+          value={newRepo}
+          onChange={(e) => setNewRepo(e.target.value)}
+          placeholder="Type the repository name..."
         />
-        <div>
-          <strong>public-speaking</strong>
-          <p>
-            Presentation, Videos, Open Source contributions, Initiatives, etc.
-          </p>
-        </div>
+        <button type="submit">Search</button>
+      </Form>
 
-        <FiChevronRight height={20} />
-      </a>
+      {inputError && <Error>{inputError}</Error>}
 
-      <a href="test">
-        <img
-          src="https://avatars0.githubusercontent.com/u/11356237?s=460&u=f8eddeb9fda5f436a5c49948a6e582f6ce6fccb1&v=4"
-          alt="Rodrigo Moutinho"
-        />
-        <div>
-          <strong>public-speaking</strong>
-          <p>
-            Presentation, Videos, Open Source contributions, Initiatives, etc.
-          </p>
-        </div>
+      <Repositories>
+        {repositories.map((repository) => (
+          <Link
+            key={repository.full_name}
+            to={`/repository/${repository.full_name}`}
+          >
+            <img
+              src={repository.owner.avatar_url}
+              alt={repository.owner.login}
+            />
+            <div>
+              <strong>{repository.full_name}</strong>
+              <p>{repository.description}</p>
+            </div>
 
-        <FiChevronRight height={20} />
-      </a>
-
-      <a href="test">
-        <img
-          src="https://avatars0.githubusercontent.com/u/11356237?s=460&u=f8eddeb9fda5f436a5c49948a6e582f6ce6fccb1&v=4"
-          alt="Rodrigo Moutinho"
-        />
-        <div>
-          <strong>public-speaking</strong>
-          <p>
-            Presentation, Videos, Open Source contributions, Initiatives, etc.
-          </p>
-        </div>
-
-        <FiChevronRight height={20} />
-      </a>
-    </Repositories>
-  </>
-);
+            <FiChevronRight height={20} />
+          </Link>
+        ))}
+      </Repositories>
+    </>
+  );
+};
 
 // 2:15
 
